@@ -52,6 +52,7 @@ class PostViewHolder(
 
             Glide.with(itemView)
                 .load("http://10.0.2.2:9999/avatars/${post.authorAvatar}")
+                .timeout(10_000)
                 .placeholder(R.drawable.ic_loading)
                 .error(R.drawable.ic_error)
                 .circleCrop()
