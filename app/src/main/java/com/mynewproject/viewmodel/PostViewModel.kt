@@ -56,11 +56,11 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
         _data.postValue(FeedModel(loading = true))
         repository.getAllAsync(object : GetAllCallBack {
             override fun onSuccess(posts: List<Post>) {
-                _data.postValue(FeedModel(posts = posts, empty = posts.isEmpty()))
+                _data.value = FeedModel(posts = posts, empty = posts.isEmpty())
             }
 
-            override fun onError(e: Exception) {
-                _data.postValue(FeedModel(error = true))
+            override fun onError(e: Throwable) {
+                _data.value = FeedModel(error = true)
             }
         })
     }
