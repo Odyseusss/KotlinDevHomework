@@ -55,6 +55,10 @@ class PostRepositoryNetwork() : PostRepository {
         }
         call.enqueue(object : Callback<Post> {
             override fun onResponse(call: Call<Post>, response: Response<Post>) {
+                if (!response.isSuccessful) {
+                    callback.onError(RuntimeException("like failed: ${response.code()}"))
+                    return
+                }
                 callback.onSuccess()
             }
 
@@ -74,12 +78,16 @@ class PostRepositoryNetwork() : PostRepository {
     override fun removeByIdAsync(id: Long, callback: PostCallback) {
         PostApi.service.deleteById(id)
             .enqueue((object : Callback<Unit> {
-                override fun onFailure(call: Call<Unit>, t: Throwable) {
-                    callback.onError(t as Exception)
-                }
 
                 override fun onResponse(call: Call<Unit>, response: Response<Unit>) {
+                    if (!response.isSuccessful) {
+                        callback.onError(RuntimeException("Remove failed: ${response.code()}"))
+                    }
                     callback.onSuccess()
+                }
+
+                override fun onFailure(call: Call<Unit>, t: Throwable) {
+                    callback.onError(t as Exception)
                 }
             }))
     }
@@ -93,6 +101,10 @@ class PostRepositoryNetwork() : PostRepository {
         PostApi.service.save(post)
             .enqueue(object : Callback<Post> {
                 override fun onResponse(call: Call<Post>, response: Response<Post>) {
+                    if (!response.isSuccessful) {
+                        callback.onError(RuntimeException("Save failed: ${response.code()}"))
+                        return
+                    }
                     callback.onSuccess(response.body()!!)
                 }
 

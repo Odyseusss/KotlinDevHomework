@@ -30,6 +30,9 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
         get() = _data
     val edited = MutableLiveData(empty)
     private val _postCreated = SingleLiveEvent<Unit>()
+    private val _errorMessage = SingleLiveEvent<String>()
+    val errorMessage: LiveData<String>
+        get() = _errorMessage
     val postCreated: LiveData<Unit>
         get() = _postCreated
 
@@ -47,6 +50,8 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             override fun onError(e: Exception) {
+                _data.value = FeedModel(error = true)
+                _errorMessage.value = "Failed to save post"
             }
 
         })
@@ -61,6 +66,7 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
 
             override fun onError(e: Throwable) {
                 _data.value = FeedModel(error = true)
+                _errorMessage.value = e.message ?: "Unknown error"
             }
         })
     }
@@ -72,21 +78,27 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
     fun shareById(id: Long) {
         repository.shareByIdAsync(id, object : PostCallback {
             override fun onSuccess() = load()
-            override fun onError(e: Exception) {}
+            override fun onError(e: Exception) {
+                _errorMessage.value = "Failed to share post"
+            }
         })
     }
 
     fun likeById(post: Post) {
         repository.likeByIdAsync(post, object : PostCallback {
             override fun onSuccess() = load()
-            override fun onError(e: Exception) {}
+            override fun onError(e: Exception) {
+                _errorMessage.value = "Failed to like post"
+            }
         })
     }
 
     fun removeById(id: Long) {
         repository.removeByIdAsync(id, object : PostCallback {
             override fun onSuccess() = load()
-            override fun onError(e: Exception) {}
+            override fun onError(e: Exception) {
+                _errorMessage.value = "Failed to remove post"
+            }
         })
     }
 
