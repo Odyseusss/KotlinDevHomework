@@ -7,7 +7,7 @@ interface PostRepository {
     fun shareById(id: Long)
     fun likeById(post: Post)
     fun removeById(id: Long)
-    fun save(post: Post): Post
+    fun save(post: Post)
 
     fun getAllAsync(callback: GetAllCallBack)
     fun shareByIdAsync(id: Long, callback: PostCallback)
@@ -18,7 +18,7 @@ interface PostRepository {
 
 interface GetAllCallBack {
     fun onSuccess(posts: List<Post>)
-    fun onError(e: Exception)
+    fun onError(e: Throwable)
 }
 
 interface SaveCallback {
