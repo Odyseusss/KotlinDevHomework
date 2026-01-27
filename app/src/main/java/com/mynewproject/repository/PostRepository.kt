@@ -1,32 +1,13 @@
 package com.mynewproject.repository
 
+import androidx.lifecycle.LiveData
 import com.mynewproject.dto.Post
 
 interface PostRepository {
-    fun getAll(): List<Post>
-    fun shareById(id: Long)
-    fun likeById(post: Post)
-    fun removeById(id: Long)
-    fun save(post: Post): Post
-
-    fun getAllAsync(callback: GetAllCallBack)
-    fun shareByIdAsync(id: Long, callback: PostCallback)
-    fun likeByIdAsync(post: Post, callback: PostCallback)
-    fun removeByIdAsync(id: Long, callback: PostCallback)
-    fun saveAsync(post: Post, callback: SaveCallback)
-}
-
-interface GetAllCallBack {
-    fun onSuccess(posts: List<Post>)
-    fun onError(e: Exception)
-}
-
-interface SaveCallback {
-    fun onSuccess(post: Post)
-    fun onError(e: Exception)
-}
-
-interface PostCallback {
-    fun onSuccess()
-    fun onError(e: Exception)
+    val data: LiveData<List<Post>>
+    suspend fun getAllAsync()
+    suspend fun shareByIdAsync(id: Long)
+    suspend fun likeByIdAsync(post: Post): Post
+    suspend fun removeByIdAsync(id: Long)
+    suspend fun saveAsync(post: Post): Post
 }

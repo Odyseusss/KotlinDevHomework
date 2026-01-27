@@ -16,6 +16,7 @@ import com.mynewproject.databinding.FragmentFeedBinding
 import com.mynewproject.dto.Post
 import com.mynewproject.viewmodel.PostViewModel
 import androidx.fragment.app.activityViewModels
+import com.google.android.material.snackbar.Snackbar
 import com.mynewproject.activity.SinglePostFragment.Companion.postIdArg
 
 class FeedFragment : Fragment() {
@@ -67,18 +68,37 @@ class FeedFragment : Fragment() {
         binding.list.adapter = adapter
         viewModel.data.observe(viewLifecycleOwner) { state ->
             adapter.submitList(state.posts)
-            binding.progress.isVisible = state.loading
             binding.empty.isVisible = state.empty
-            binding.errorGroup.isVisible = state.error
+        }
+
+        viewModel.state.observe(viewLifecycleOwner) { state ->
+            binding.progress.isVisible = state.loading
+            if (state.error) {
+                Snackbar.make(binding.root, R.string.SmthWentWrong, Snackbar.LENGTH_SHORT)
+                    .setAction(R.string.retry) {
+                        viewModel.load()
+                    }
+                    .show()
+            }
+            binding.swipeRefresh.isRefreshing = state.refreshing
+        }
+
+        binding.swipeRefresh.setOnRefreshListener {
+            viewModel.refresh()
+        }
+
+
+        viewModel.errorMessage.observe(viewLifecycleOwner) { message ->
+            Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG)
+                .setAction(R.string.retry) {
+                    viewModel.load()
+                }
+                .show()
         }
 
         binding.add.setOnClickListener {
             viewModel.cancelEdit()
             findNavController().navigate(R.id.action_feedFragment_to_newPostFragment)
-        }
-
-        binding.retryButton.setOnClickListener {
-            viewModel.load()
         }
 
         return binding.root

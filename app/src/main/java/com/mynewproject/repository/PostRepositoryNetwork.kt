@@ -1,173 +1,58 @@
 package com.mynewproject.repository
 
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.map
+import com.mynewproject.api.PostApi
+import com.mynewproject.dao.PostDao
 import com.mynewproject.dto.Post
-import okhttp3.Call
-import okhttp3.Callback
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
-import okio.IOException
-import java.util.concurrent.TimeUnit
+import com.mynewproject.entity.PostEntity
 
-class PostRepositoryNetwork() : PostRepository {
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .build()
+class PostRepositoryNetwork(private val dao: PostDao) : PostRepository {
 
-    private val gson = Gson()
-
-    private val type = TypeToken.getParameterized(List::class.java, Post::class.java).type
-
-    companion object {
-        private const val BASE_URL = "http://10.0.2.2:9999/"
-        val jsonType = "application/json".toMediaType()
+    override val data: LiveData<List<Post>> = dao.getAll().map {
+        it.map(PostEntity::toDto)
     }
 
-    override fun getAllAsync(callback: GetAllCallBack) {
-        val request = Request.Builder()
-            .url("${BASE_URL}api/slow/posts")
-            .build()
-
-        client.newCall(request)
-            .enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    callback.onError(e)
-                }
-
-                override fun onResponse(call: Call, response: Response) {
-                    try {
-                        val posts =
-                            response.body?.string() ?: throw RuntimeException("body is null")
-                        callback.onSuccess(gson.fromJson(posts, type))
-                    } catch (e: Exception) {
-                        callback.onError(e)
-                    }
-                }
-            })
+    override suspend fun getAllAsync() {
+        val posts: List<Post> = PostApi.service.getAll()
+        dao.insert(posts.map(PostEntity::fromDto))
     }
 
-    override fun getAll(): List<Post> {
-        val request = Request.Builder()
-            .url("${BASE_URL}api/slow/posts")
-            .build()
-
-        return client.newCall(request)
-            .execute()
-            .let { it.body?.string() ?: throw RuntimeException("body is null") }
-            .let { gson.fromJson(it, type) }
+    override suspend fun shareByIdAsync(id: Long) {
+        dao.shareById(id)
     }
 
-    override fun likeByIdAsync(post: Post, callback: PostCallback) {
-        val request = (if (!post.likedByMe) {
-            Request.Builder()
-                .url("${BASE_URL}api/posts/${post.id}/likes")
-                .post("".toRequestBody())
-        } else {
-            Request.Builder()
-                .url("${BASE_URL}api/posts/${post.id}/likes")
-                .delete()
-        }).build()
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) =
-                callback.onError(e)
-
-            override fun onResponse(call: Call, response: Response) =
-                callback.onSuccess()
-        })
+    override suspend fun likeByIdAsync(post: Post): Post {
+        dao.likeById(post.id)
+        return try {
+            if (post.likedByMe) {
+                PostApi.service.dislikeById(post.id)
+            } else {
+                PostApi.service.likeById(post.id)
+            }
+        } catch (e: Exception) {
+            dao.likeById(post.id)
+            throw e
+        }
     }
 
-    override fun likeById(post: Post) {
-        val request = if (!post.likedByMe) {
-            Request.Builder()
-                .url("${BASE_URL}api/posts/${post.id}/likes")
-                .post("".toRequestBody())
-                .build()
-        } else {
-            Request.Builder()
-                .url("${BASE_URL}api/posts/${post.id}/likes")
-                .delete()
-                .build()
+    override suspend fun removeByIdAsync(id: Long) {
+        val post = dao.getById(id)
+        dao.removeById(id)
+        try {
+            PostApi.service.deleteById(id)
+        } catch (e: Exception) {
+            dao.insert(post)
+            throw e
         }
 
-        client.newCall(request).execute()
     }
 
-    override fun shareByIdAsync(id: Long, callback: PostCallback) {
-        callback.onSuccess()
-    }
-
-    override fun shareById(id: Long) {
-    }
-
-    override fun removeByIdAsync(id: Long, callback: PostCallback) {
-        val request = Request.Builder()
-            .url("${BASE_URL}api/posts/$id")
-            .delete()
-            .build()
-
-        client.newCall(request).enqueue((object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                callback.onError(e)
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                callback.onSuccess()
-            }
-        }))
-    }
-
-    override fun removeById(id: Long) {
-        val request = Request.Builder()
-            .url("${BASE_URL}api/posts/$id")
-            .delete()
-            .build()
-
-        client.newCall(request).execute()
-    }
-
-    override fun saveAsync(post: Post, callback: SaveCallback) {
-        val request = Request.Builder()
-            .url("${BASE_URL}api/slow/posts")
-            .post(gson.toJson(post).toRequestBody(jsonType))
-            .build()
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                callback.onError(e)
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                try {
-                    val json =
-                        response.body?.string() ?: throw RuntimeException("body is null")
-                    callback.onSuccess(gson.fromJson(json, Post::class.java))
-                } catch (e: Exception) {
-                    callback.onError(e)
-                }
-            }
-        })
-    }
-
-    override fun save(post: Post): Post {
-        val request = Request.Builder()
-            .url("${BASE_URL}api/slow/posts")
-            .post(gson.toJson(post).toRequestBody(jsonType))
-            .build()
-
-        val call = client.newCall(request)
-
-        val response = call.execute()
-
-        val textBody = response.body.string()
-
-        response.close()
-
-        return gson.fromJson(textBody, Post::class.java)
+    override suspend fun saveAsync(post: Post): Post {
+        val saved = PostApi.service.save(post)
+        dao.save(PostEntity.fromDto(saved))
+        return saved
     }
 }
