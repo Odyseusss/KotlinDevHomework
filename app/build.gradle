@@ -51,6 +51,9 @@ dependencies {
     def retrofitgson_version = "3.0.0"
     def okhttplogging_version = "5.1.0"
 
+    implementation libs.androidx.swiperefreshlayout
+    implementation libs.kotlinx.coroutines.android
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)

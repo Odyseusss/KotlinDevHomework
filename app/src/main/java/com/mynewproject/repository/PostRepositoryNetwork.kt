@@ -1,121 +1,58 @@
 package com.mynewproject.repository
 
 
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.map
 import com.mynewproject.api.PostApi
+import com.mynewproject.dao.PostDao
 import com.mynewproject.dto.Post
-import retrofit2.Callback
-import retrofit2.Call
-import retrofit2.Response
+import com.mynewproject.entity.PostEntity
 
 
-class PostRepositoryNetwork() : PostRepository {
+class PostRepositoryNetwork(private val dao: PostDao) : PostRepository {
 
-    override fun getAllAsync(callback: GetAllCallBack) {
-        PostApi.service.getAll()
-            .enqueue(object : Callback<List<Post>> {
-                override fun onResponse(
-                    call: Call<List<Post>>,
-                    response: Response<List<Post>>
-                ) {
-                    if (!response.isSuccessful) {
-                        callback.onError(RuntimeException("Server error: ${response.code()}"))
-                        return
-                    }
-
-                    callback.onSuccess(response.body().orEmpty())
-                }
-
-                override fun onFailure(
-                    call: Call<List<Post>>,
-                    throwable: Throwable
-                ) {
-                    callback.onError(throwable)
-                }
-
-            })
+    override val data: LiveData<List<Post>> = dao.getAll().map {
+        it.map(PostEntity::toDto)
     }
 
-    override fun getAll(): List<Post> {
-        return PostApi.service.getAll()
-            .execute()
-            .body()
-            .orEmpty()
+    override suspend fun getAllAsync() {
+        val posts: List<Post> = PostApi.service.getAll()
+        dao.insert(posts.map(PostEntity::fromDto))
     }
 
-    override fun likeById(post: Post) {
-        PostApi.service.likeById(post.id)
-            .execute()
+    override suspend fun shareByIdAsync(id: Long) {
+        dao.shareById(id)
     }
 
-    override fun likeByIdAsync(post: Post, callback: PostCallback) {
-        val call = if (!post.likedByMe) {
-            PostApi.service.likeById(post.id)
-        } else {
-            PostApi.service.dislikeById(post.id)
+    override suspend fun likeByIdAsync(post: Post): Post {
+        dao.likeById(post.id)
+        return try {
+            if (post.likedByMe) {
+                PostApi.service.dislikeById(post.id)
+            } else {
+                PostApi.service.likeById(post.id)
+            }
+        } catch (e: Exception) {
+            dao.likeById(post.id)
+            throw e
         }
-        call.enqueue(object : Callback<Post> {
-            override fun onResponse(call: Call<Post>, response: Response<Post>) {
-                if (!response.isSuccessful) {
-                    callback.onError(RuntimeException("like failed: ${response.code()}"))
-                    return
-                }
-                callback.onSuccess()
-            }
-
-            override fun onFailure(call: Call<Post>, t: Throwable) {
-                callback.onError(t as Exception)
-            }
-        })
     }
 
-    override fun shareByIdAsync(id: Long, callback: PostCallback) {
-        callback.onSuccess()
+    override suspend fun removeByIdAsync(id: Long) {
+        val post = dao.getById(id)
+        dao.removeById(id)
+        try {
+            PostApi.service.deleteById(id)
+        } catch (e: Exception) {
+            dao.insert(post)
+            throw e
+        }
+
     }
 
-    override fun shareById(id: Long) {
-    }
-
-    override fun removeByIdAsync(id: Long, callback: PostCallback) {
-        PostApi.service.deleteById(id)
-            .enqueue((object : Callback<Unit> {
-
-                override fun onResponse(call: Call<Unit>, response: Response<Unit>) {
-                    if (!response.isSuccessful) {
-                        callback.onError(RuntimeException("Remove failed: ${response.code()}"))
-                    }
-                    callback.onSuccess()
-                }
-
-                override fun onFailure(call: Call<Unit>, t: Throwable) {
-                    callback.onError(t as Exception)
-                }
-            }))
-    }
-
-    override fun removeById(id: Long) {
-        PostApi.service.deleteById(id)
-            .execute()
-    }
-
-    override fun saveAsync(post: Post, callback: SaveCallback) {
-        PostApi.service.save(post)
-            .enqueue(object : Callback<Post> {
-                override fun onResponse(call: Call<Post>, response: Response<Post>) {
-                    if (!response.isSuccessful) {
-                        callback.onError(RuntimeException("Save failed: ${response.code()}"))
-                        return
-                    }
-                    callback.onSuccess(response.body()!!)
-                }
-
-                override fun onFailure(call: Call<Post>, t: Throwable) {
-                    callback.onError(t as Exception)
-                }
-            })
-    }
-
-    override fun save(post: Post) {
-        PostApi.service.save(post)
-            .execute()
+    override suspend fun saveAsync(post: Post): Post {
+        val saved = PostApi.service.save(post)
+        dao.save(PostEntity.fromDto(saved))
+        return saved
     }
 }

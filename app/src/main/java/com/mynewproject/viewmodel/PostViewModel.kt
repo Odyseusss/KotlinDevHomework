@@ -4,14 +4,17 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.map
+import androidx.lifecycle.viewModelScope
+import com.mynewproject.db.AppDb
 import com.mynewproject.dto.Post
 import com.mynewproject.model.FeedModel
-import com.mynewproject.repository.GetAllCallBack
-import com.mynewproject.repository.PostCallback
+import com.mynewproject.model.FeedModelState
 import com.mynewproject.repository.PostRepository
 import com.mynewproject.repository.PostRepositoryNetwork
-import com.mynewproject.repository.SaveCallback
 import com.mynewproject.util.SingleLiveEvent
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
 
 private val empty = Post(
     id = 0,
@@ -24,10 +27,20 @@ private val empty = Post(
 )
 
 class PostViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository: PostRepository = PostRepositoryNetwork()
-    private val _data: MutableLiveData<FeedModel> = MutableLiveData(FeedModel())
-    val data: LiveData<FeedModel>
-        get() = _data
+    private val repository: PostRepository = PostRepositoryNetwork(
+        AppDb.getInstance(application).postDao()
+    )
+
+    private val _state = MutableLiveData(FeedModelState())
+    val state: LiveData<FeedModelState>
+        get() = _state
+    private val scope = MainScope()
+    val data: LiveData<FeedModel> = repository.data.map {
+        FeedModel(
+            posts = it,
+            empty = it.isEmpty(),
+        )
+    }
     val edited = MutableLiveData(empty)
     private val _postCreated = SingleLiveEvent<Unit>()
     private val _errorMessage = SingleLiveEvent<String>()
@@ -40,35 +53,31 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
         load()
     }
 
-    fun save() {
-        val post = edited.value ?: return
-        repository.saveAsync(post, object : SaveCallback {
-            override fun onSuccess(post: Post) {
-                _postCreated.postValue(Unit)
-                edited.postValue(empty)
-                load()
-            }
+    fun load() {
+        viewModelScope.launch {
+            _state.postValue(FeedModelState(loading = true))
+            try {
+                repository.getAllAsync()
 
-            override fun onError(e: Exception) {
-                _data.value = FeedModel(error = true)
-                _errorMessage.value = "Failed to save post"
+                _state.value = FeedModelState()
+            } catch (_: Exception) {
+                _state.value = FeedModelState(error = true)
             }
-
-        })
+        }
     }
 
-    fun load() {
-        _data.postValue(FeedModel(loading = true))
-        repository.getAllAsync(object : GetAllCallBack {
-            override fun onSuccess(posts: List<Post>) {
-                _data.value = FeedModel(posts = posts, empty = posts.isEmpty())
+    fun save() {
+        viewModelScope.launch {
+            try {
+                edited.value?.let {
+                    repository.saveAsync(it)
+                    _postCreated.value = Unit
+                    edited.value = empty
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Ошибка"
             }
-
-            override fun onError(e: Throwable) {
-                _data.value = FeedModel(error = true)
-                _errorMessage.value = e.message ?: "Unknown error"
-            }
-        })
+        }
     }
 
     fun edit(post: Post) {
@@ -76,30 +85,29 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun shareById(id: Long) {
-        repository.shareByIdAsync(id, object : PostCallback {
-            override fun onSuccess() = load()
-            override fun onError(e: Exception) {
-                _errorMessage.value = "Failed to share post"
-            }
-        })
+        viewModelScope.launch {
+            repository.shareByIdAsync(id)
+        }
     }
 
     fun likeById(post: Post) {
-        repository.likeByIdAsync(post, object : PostCallback {
-            override fun onSuccess() = load()
-            override fun onError(e: Exception) {
-                _errorMessage.value = "Failed to like post"
+        viewModelScope.launch {
+            try {
+                repository.likeByIdAsync(post)
+            } catch (e: Exception) {
+                _errorMessage.value = "Ошибка"
             }
-        })
+        }
     }
 
     fun removeById(id: Long) {
-        repository.removeByIdAsync(id, object : PostCallback {
-            override fun onSuccess() = load()
-            override fun onError(e: Exception) {
-                _errorMessage.value = "Failed to remove post"
+        viewModelScope.launch {
+            try {
+                repository.removeByIdAsync(id)
+            } catch (e: Exception) {
+                _errorMessage.value = "Ошибка"
             }
-        })
+        }
     }
 
     fun changeContent(content: String) {
@@ -108,5 +116,18 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
 
     fun cancelEdit() {
         edited.value = empty
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _state.postValue(FeedModelState(refreshing = true))
+            try {
+                repository.getAllAsync()
+
+                _state.value = FeedModelState()
+            } catch (_: Exception) {
+                _state.value = FeedModelState(error = true)
+            }
+        }
     }
 }
