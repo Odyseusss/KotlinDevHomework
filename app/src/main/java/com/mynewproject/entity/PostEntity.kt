@@ -17,6 +17,7 @@ data class PostEntity(
     val sharedByMe: Boolean = false,
     val video: String? = null,
     val authorAvatar: String? = null,
+    val hidden: Boolean = false,
 ) {
     fun toDto(): Post = Post(
         id = id,
@@ -44,6 +45,7 @@ data class PostEntity(
                 sharedByMe = sharedByMe,
                 video = video,
                 authorAvatar = authorAvatar,
+                hidden = true,
             )
         }
     }

@@ -70,6 +70,15 @@ class FeedFragment : Fragment() {
             adapter.submitList(state.posts)
             binding.empty.isVisible = state.empty
         }
+        viewModel.newerCount.observe(viewLifecycleOwner) { count ->
+            binding.newPosts.isVisible = count > 0
+            binding.newPosts.setText(R.string.new_posts)
+        }
+
+        binding.newPosts.setOnClickListener {
+            viewModel.showNewPosts()
+            binding.list.smoothScrollToPosition(0)
+        }
 
         viewModel.state.observe(viewLifecycleOwner) { state ->
             binding.progress.isVisible = state.loading

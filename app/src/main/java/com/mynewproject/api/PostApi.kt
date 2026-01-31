@@ -4,6 +4,7 @@ import com.mynewproject.BuildConfig
 import com.mynewproject.dto.Post
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
@@ -48,6 +49,9 @@ interface PostApi {
 
     @DELETE("posts/{id}/likes")
     suspend fun dislikeById(@Path("id") id: Long): Post
+
+    @GET("posts/{id}/newer")
+    suspend fun getNewer(@Path("id") id: Long): Response<List<Post>>
 
     companion object {
         val service: PostApi by lazy {

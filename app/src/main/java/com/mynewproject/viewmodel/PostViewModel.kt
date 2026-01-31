@@ -4,7 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.map
+import androidx.lifecycle.asLiveData
+import androidx.lifecycle.switchMap
 import androidx.lifecycle.viewModelScope
 import com.mynewproject.db.AppDb
 import com.mynewproject.dto.Post
@@ -13,7 +14,10 @@ import com.mynewproject.model.FeedModelState
 import com.mynewproject.repository.PostRepository
 import com.mynewproject.repository.PostRepositoryNetwork
 import com.mynewproject.util.SingleLiveEvent
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 private val empty = Post(
@@ -35,12 +39,18 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
     val state: LiveData<FeedModelState>
         get() = _state
     private val scope = MainScope()
-    val data: LiveData<FeedModel> = repository.data.map {
-        FeedModel(
-            posts = it,
-            empty = it.isEmpty(),
-        )
+    val data: LiveData<FeedModel> =
+        repository.data.map { list: List<Post> -> FeedModel(list, list.isEmpty()) }
+            .catch { it.printStackTrace() }
+            .asLiveData(
+                Dispatchers.Default
+            )
+    val newerCount = data.switchMap {
+        repository.getNewer(
+            data.value?.posts?.firstOrNull()?.id ?: 0
+        ).asLiveData()
     }
+
     val edited = MutableLiveData(empty)
     private val _postCreated = SingleLiveEvent<Unit>()
     private val _errorMessage = SingleLiveEvent<String>()
@@ -74,7 +84,7 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
                     _postCreated.value = Unit
                     edited.value = empty
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _errorMessage.value = "Ошибка"
             }
         }
@@ -94,7 +104,7 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 repository.likeByIdAsync(post)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _errorMessage.value = "Ошибка"
             }
         }
@@ -104,7 +114,7 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 repository.removeByIdAsync(id)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _errorMessage.value = "Ошибка"
             }
         }
@@ -127,6 +137,16 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
                 _state.value = FeedModelState()
             } catch (_: Exception) {
                 _state.value = FeedModelState(error = true)
+            }
+        }
+    }
+
+    fun showNewPosts() {
+        viewModelScope.launch {
+            try {
+                repository.showAll()
+            } catch (_: Exception) {
+                _errorMessage.value = "Возникла ошибка при загрузке постов"
             }
         }
     }

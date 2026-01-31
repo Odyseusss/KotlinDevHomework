@@ -1,17 +1,23 @@
 package com.mynewproject.dao
 
-import androidx.lifecycle.LiveData
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.mynewproject.entity.PostEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface PostDao {
 
-    @Query("SELECT * FROM PostEntity ORDER BY id DESC")
-    fun getAll(): LiveData<List<PostEntity>>
+    @Query("SELECT COUNT(*) FROM PostEntity WHERE hidden = 1")
+    fun getHiddenCount(): Flow<Int>
+
+    @Query("UPDATE PostEntity SET hidden = 0")
+    suspend fun showAll()
+
+    @Query("SELECT * FROM PostEntity WHERE hidden = 0 ORDER BY id DESC")
+    fun getAll(): Flow<List<PostEntity>>
 
     @Query("SELECT * FROM PostEntity WHERE id = :id")
     suspend fun getById(id: Long): PostEntity
