@@ -21,7 +21,7 @@ class PostRepositoryNetwork(private val dao: PostDao) : PostRepository {
     override val data = dao.getAll().map { it -> it.map { it.toDto() } }.flowOn(Dispatchers.Default)
 
     override suspend fun getAllAsync() {
-        val posts: List<Post> = PostApi.service.getAll()
+        val posts = PostApi.service.getAll()
         dao.insert(posts.map(PostEntity::fromDto))
     }
 
@@ -63,20 +63,22 @@ class PostRepositoryNetwork(private val dao: PostDao) : PostRepository {
 
     override fun getNewer(id: Long): Flow<Int> = flow {
         while (true) {
-            delay(10_000L)
+            delay(10_000)
             val response = PostApi.service.getNewer(id)
             if (!response.isSuccessful) {
                 throw ApiError(response.code(), response.message())
             }
 
-            val body = response.body() ?: emptyList()
+            val body = response.body().orEmpty()
 
-            if (body.isNotEmpty()) {
-                dao.insert(body.map(PostEntity::fromDto))
-            }
+            dao.insertShadow(
+                body.map(PostEntity::fromDtoHidden)
+            )
             emit(body.size)
         }
-    }.flowOn(Dispatchers.IO)
+    }.catch { e ->
+        throw AppError.from(e)
+    }
 
     override suspend fun showAll() {
         dao.showAll()

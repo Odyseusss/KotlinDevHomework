@@ -143,11 +143,7 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
 
     fun showNewPosts() {
         viewModelScope.launch {
-            try {
-                repository.showAll()
-            } catch (_: Exception) {
-                _errorMessage.value = "Возникла ошибка при загрузке постов"
-            }
+            repository.showAll()
         }
     }
 }

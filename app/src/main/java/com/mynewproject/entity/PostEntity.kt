@@ -45,6 +45,22 @@ data class PostEntity(
                 sharedByMe = sharedByMe,
                 video = video,
                 authorAvatar = authorAvatar,
+                hidden = false,
+            )
+        }
+
+        fun fromDtoHidden(post: Post): PostEntity = with(post) {
+            PostEntity(
+                id = id,
+                author = author,
+                published = published,
+                content = content,
+                likes = likes,
+                likedByMe = likedByMe,
+                shares = shares,
+                sharedByMe = sharedByMe,
+                video = video,
+                authorAvatar = authorAvatar,
                 hidden = true,
             )
         }
