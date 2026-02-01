@@ -65,8 +65,13 @@
     <TextView
         android:id="@+id/newPosts"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:background="@color/gray"
+        android:gravity="center"
+        android:padding="12dp"
         android:text="@string/new_posts"
+        android:textColor="@android:color/white"
         android:visibility="gone" />
 
     <TextView

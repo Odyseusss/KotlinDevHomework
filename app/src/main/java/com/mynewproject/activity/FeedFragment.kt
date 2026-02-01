@@ -78,6 +78,7 @@ class FeedFragment : Fragment() {
         binding.newPosts.setOnClickListener {
             viewModel.showNewPosts()
             binding.list.smoothScrollToPosition(0)
+            binding.newPosts.isVisible = false
         }
 
         viewModel.state.observe(viewLifecycleOwner) { state ->
