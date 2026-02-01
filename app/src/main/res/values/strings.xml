@@ -25,4 +25,5 @@
     <string name="no_posts">No posts</string>
     <string name="SmthWentWrong">Something went wrong</string>
     <string name="retry">Retry again</string>
+    <string name="new_posts">New posts</string>
 </resources>

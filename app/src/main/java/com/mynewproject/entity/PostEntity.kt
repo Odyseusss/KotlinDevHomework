@@ -16,6 +16,8 @@ data class PostEntity(
     val shares: Int = 0,
     val sharedByMe: Boolean = false,
     val video: String? = null,
+    val authorAvatar: String? = null,
+    val hidden: Boolean = false,
 ) {
     fun toDto(): Post = Post(
         id = id,
@@ -26,7 +28,8 @@ data class PostEntity(
         likedByMe = likedByMe,
         shares = shares,
         sharedByMe = sharedByMe,
-        video = video
+        video = video,
+        authorAvatar = authorAvatar,
     )
 
     companion object {
@@ -40,7 +43,25 @@ data class PostEntity(
                 likedByMe = likedByMe,
                 shares = shares,
                 sharedByMe = sharedByMe,
-                video = video
+                video = video,
+                authorAvatar = authorAvatar,
+                hidden = false,
+            )
+        }
+
+        fun fromDtoHidden(post: Post): PostEntity = with(post) {
+            PostEntity(
+                id = id,
+                author = author,
+                published = published,
+                content = content,
+                likes = likes,
+                likedByMe = likedByMe,
+                shares = shares,
+                sharedByMe = sharedByMe,
+                video = video,
+                authorAvatar = authorAvatar,
+                hidden = true,
             )
         }
     }
